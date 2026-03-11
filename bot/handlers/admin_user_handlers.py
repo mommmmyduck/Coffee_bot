@@ -14,10 +14,11 @@ class AdminUserStates(StatesGroup):
     waiting_for_role_change = State()
 
 
-@router.message(F.text == "👥 Пользователи")
-@admin_required
-async def admin_users_menu(message: Message):
-    """Меню управления пользователями"""
+# -----------------------
+# Вспомогательная функция для отображения меню
+# -----------------------
+async def show_admin_users_menu(chat_id: int, bot, user):
+    """Показать меню управления пользователями"""
     text = "👥 <b>Управление пользователями</b>\n\n"
     text += "Выберите действие:"
     
@@ -27,7 +28,17 @@ async def admin_users_menu(message: Message):
         [InlineKeyboardButton(text="➕ Назначить бариста", callback_data="admin_add_staff")],
     ])
     
-    await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    await bot.send_message(chat_id, text, reply_markup=keyboard, parse_mode="HTML")
+
+
+# -----------------------
+# Основные обработчики
+# -----------------------
+@router.message(F.text == "👥 Пользователи")
+@admin_required
+async def admin_users_menu(message: Message):
+    """Меню управления пользователями"""
+    await show_admin_users_menu(message.chat.id, message.bot, message.from_user._user)
 
 
 @router.callback_query(F.data == "admin_list_staff")
@@ -154,5 +165,5 @@ async def admin_add_staff_process(message: Message, state: FSMContext):
 async def admin_back_to_users(callback: CallbackQuery, state: FSMContext):
     """Вернуться в меню пользователей"""
     await state.clear()
-    await admin_users_menu(callback.message)
+    await show_admin_users_menu(callback.message.chat.id, callback.bot, callback.from_user._user)
     await callback.answer()
