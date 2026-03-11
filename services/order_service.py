@@ -615,3 +615,61 @@ async def format_cart_text_short(order) -> str:
     
     items_count = sum(item.quantity for item in order.items)
     return f"🛒 Корзина: {items_count} товаров на {order.total_price} ₽"
+
+async def get_user_active_orders(user_id: int) -> list[Order]:
+    """
+    Получить активные заказы пользователя 
+    (awaiting_payment, processing, completed за последние 2 часа)
+    """
+    from datetime import datetime, timedelta
+    
+    async with SessionLocal() as session:
+        # Заказы за последние 2 часа
+        two_hours_ago = datetime.utcnow() - timedelta(hours=2)
+        
+        stmt = (
+            select(Order)
+            .options(
+                selectinload(Order.items)
+                .selectinload(OrderItem.product)
+            )
+            .options(
+                selectinload(Order.items)
+                .selectinload(OrderItem.customization)
+            )
+            .where(
+                Order.user_id == user_id,
+                Order.status.in_([
+                    OrderStatus.awaiting_payment,
+                    OrderStatus.processing,
+                    OrderStatus.completed
+                ]),
+                Order.created_at >= two_hours_ago
+            )
+            .order_by(Order.created_at.desc())
+        )
+        
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def get_order_by_id(order_id: int) -> Order | None:
+    """
+    Получить заказ по ID с полной информацией
+    """
+    async with SessionLocal() as session:
+        stmt = (
+            select(Order)
+            .options(
+                selectinload(Order.items)
+                .selectinload(OrderItem.product)
+            )
+            .options(
+                selectinload(Order.items)
+                .selectinload(OrderItem.customization)
+            )
+            .where(Order.id == order_id)
+        )
+        
+        result = await session.execute(stmt)
+        return result.scalars().first()

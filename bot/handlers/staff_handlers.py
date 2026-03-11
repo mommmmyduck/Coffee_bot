@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.utils.decorators import staff_required
+from services.notification_service import notify_customer_status_change
 from services.order_service import get_active_orders, mark_order_as_completed
 from bot.utils.time_utils import format_order_time  # 👈 импортируем
 
@@ -129,7 +130,10 @@ async def complete_order_callback(callback: CallbackQuery):
     order = await mark_order_as_completed(order_id)
     
     if order:
-        await callback.answer(f"✅ Заказ №{order_id} завершён!", show_alert=True)
+        await notify_customer_status_change(order)
+        
+        await callback.answer(f"✅ Заказ №{order_id} завершён! Клиент уведомлён.", show_alert=True)
+        
         
         # Обновляем список активных заказов
         orders = await get_active_orders()

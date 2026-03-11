@@ -138,3 +138,56 @@ async def notify_staff_order_cancelled(order, cancelled_by_user=True):
             print(f"❌ Ошибка отправки уведомления {staff.telegram_id}: {e}")
     
     await bot.session.close()
+
+async def notify_customer_status_change(order):
+    """
+    Уведомить клиента о смене статуса заказа
+    """
+    from database.models.order import get_status_display, get_status_emoji, OrderStatus
+    from database.models.user import User
+    from sqlalchemy import select
+    from database.database import SessionLocal
+    
+    bot = Bot(token=BOT_TOKEN)
+    
+    # Получаем пользователя
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.id == order.user_id)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+    
+    if not user:
+        return
+    
+    status_emoji = get_status_emoji(order.status)
+    status_text = get_status_display(order.status)
+    
+    # Разные сообщения для разных статусов
+    if order.status == OrderStatus.processing:
+        text = f"{status_emoji} <b>Ваш заказ №{order.id} готовится!</b>\n\n"
+        text += "👨‍🍳 Бариста уже начал готовить ваш заказ.\n"
+        text += "Скоро всё будет готово!"
+    
+    elif order.status == OrderStatus.completed:
+        text = f"{status_emoji} <b>Заказ №{order.id} готов!</b>\n\n"
+        text += "✅ Ваш заказ готов к выдаче!\n"
+        text += "Можете забрать на стойке.\n\n"
+        text += f"💰 Сумма: {order.total_price} ₽"
+    
+    elif order.status == OrderStatus.cancelled:
+        text = f"{status_emoji} <b>Заказ №{order.id} отменён</b>\n\n"
+        text += "К сожалению, заказ был отменён."
+    
+    else:
+        return  # Для других статусов не уведомляем
+    
+    try:
+        await bot.send_message(
+            chat_id=user.telegram_id,
+            text=text,
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка отправки уведомления клиенту {user.telegram_id}: {e}")
+    
+    await bot.session.close()

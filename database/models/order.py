@@ -13,6 +13,28 @@ class OrderStatus(enum.Enum):
     completed = "completed"
     cancelled = "cancelled"
 
+def get_status_display(status: OrderStatus) -> str:
+    """Красивое отображение статуса"""
+    status_map = {
+        OrderStatus.pending: "🛒 В корзине",
+        OrderStatus.awaiting_payment: "⏳ Ожидает оплаты",
+        OrderStatus.processing: "👨‍🍳 Готовится",
+        OrderStatus.completed: "✅ Готов к выдаче",
+        OrderStatus.cancelled: "❌ Отменён",
+    }
+    return status_map.get(status, str(status))
+
+def get_status_emoji(status: OrderStatus) -> str:
+    """Получить эмодзи статуса"""
+    emoji_map = {
+        OrderStatus.pending: "🛒",
+        OrderStatus.awaiting_payment: "⏳",
+        OrderStatus.processing: "👨‍🍳",
+        OrderStatus.completed: "✅",
+        OrderStatus.cancelled: "❌",
+    }
+    return emoji_map.get(status, "❓")
+
 def get_moscow_time():
     """Возвращает текущее московское время"""
     tz = pytz.timezone('Europe/Moscow')

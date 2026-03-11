@@ -10,7 +10,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
             KeyboardButton(text="🛒 Корзина"),
         ],
         [
-            KeyboardButton(text="📦 История заказов"),
+            KeyboardButton(text="📦 Мои заказы"),
             KeyboardButton(text="👤 Профиль"),
         ],
     ]
