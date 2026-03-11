@@ -1,4 +1,4 @@
-#services/menu_service.py
+# services/menu_service.py
 from sqlalchemy import select
 from database.database import SessionLocal
 from database.models.product import Product, ProductCategory
@@ -58,6 +58,8 @@ async def create_product(
     volume: str | None = None,
     weight: int | None = None,
     image_url: str | None = None,
+    calories: int | None = None,  # 👈 ДОБАВЛЕНО
+    is_active: bool = True,       # 👈 ДОБАВЛЕНО
 ) -> Product:
     """
     Создать новый продукт.
@@ -71,6 +73,8 @@ async def create_product(
             volume=volume,
             weight=weight,
             image_url=image_url,
+            calories=calories,      # 👈 ДОБАВЛЕНО
+            is_active=is_active,    # 👈 ДОБАВЛЕНО
         )
         
         session.add(product)
@@ -113,10 +117,51 @@ async def toggle_product_active(product_id: int) -> Product | None:
         await session.commit()
         await session.refresh(product)
         return product
-    
-# services/menu_service.py
 
-# ... существующий код ...
+
+async def update_product(
+    product_id: int,
+    name: str | None = None,
+    price: float | None = None,
+    description: str | None = None,
+    volume: str | None = None,
+    weight: int | None = None,
+    image_url: str | None = None,
+    calories: int | None = None,
+    is_active: bool | None = None,
+) -> Product | None:
+    """
+    Обновить информацию о продукте.
+    """
+    async with SessionLocal() as session:
+        product = await get_product_by_id(product_id)
+        
+        if not product:
+            return None
+        
+        if name is not None:
+            product.name = name
+        if price is not None:
+            product.price = price
+        if description is not None:
+            product.description = description
+        if volume is not None:
+            product.volume = volume
+        if weight is not None:
+            product.weight = weight
+        if image_url is not None:
+            product.image_url = image_url
+        if calories is not None:
+            product.calories = calories
+        if is_active is not None:
+            product.is_active = is_active
+        
+        await session.commit()
+        await session.refresh(product)
+        return product
+
+
+# Вспомогательные функции для форматирования
 
 def format_product_status(product) -> str:
     """
@@ -140,3 +185,19 @@ def format_product_name(product) -> str:
     """
     emoji = "✅" if product.is_active else "❌"
     return f"{product.name} {emoji}"
+
+
+def format_product_details(product) -> str:
+    """
+    Форматировать детальную информацию о товаре
+    """
+    details = []
+    
+    if product.volume:
+        details.append(f"📏 Объём: {product.volume} мл")
+    if product.weight:
+        details.append(f"⚖️ Вес: {product.weight} г")
+    if product.calories:
+        details.append(f"🔥 Калории: {product.calories} ккал")
+    
+    return "\n".join(details) if details else "Нет дополнительной информации"

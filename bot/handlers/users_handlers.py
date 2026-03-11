@@ -105,30 +105,5 @@ async def cmd_set_role(message: Message):
     await message.answer(f"✅ Роль пользователя {target_user.first_name} установлена на {role}")
 
 
-@router.message(F.text == "👤 Профиль")
-async def show_profile(message: Message):
-    """
-    Показать профиль пользователя
-    """
-    user = message.from_user._user
-    
-    role_names = {
-        "buyer": "Клиент",
-        "seller": "Бариста",
-        "owner": "Администратор",
-    }
-    
-    text = f"👤 <b>Профиль</b>\n\n"
-    text += f"Имя: {user.first_name}\n"
-    
-    if user.last_name:
-        text += f"Фамилия: {user.last_name}\n"
-    
-    if user.username:
-        text += f"Username: @{user.username}\n"
-    
-    text += f"\nРоль: {role_names.get(user.role, user.role)}\n"
-    text += f"💰 Бонусные баллы: {user.bonus_points}\n"
-    text += f"☕ Всего заказано чашек: {user.total_cups}"
-    
-    await message.answer(text, parse_mode="HTML")
+
+    __all__ = ['router', 'get_keyboard_for_user']

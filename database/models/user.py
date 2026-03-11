@@ -1,11 +1,8 @@
-#database/models/user.py
+#models/user.py
 from datetime import date
-
 from sqlalchemy import BigInteger, String, Integer, Date
 from sqlalchemy.orm import Mapped, mapped_column
-
 from database.base import Base
-
 
 class User(Base):
     __tablename__ = "users"
@@ -54,5 +51,5 @@ class User(Base):
         String(255)
     )
 
-def __repr__(self):
-    return f"<User(id={self.id}, telegram_id={self.telegram_id}, username={self.username})>"
+    def __repr__(self):  # ← ПРАВИЛЬНЫЙ отступ (внутри класса)
+        return f"<User(id={self.id}, telegram_id={self.telegram_id}, username={self.username})>"

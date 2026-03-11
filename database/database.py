@@ -22,4 +22,4 @@ async def init_db():
 
 # импорт моделей в самом конце, чтобы не было циклического импорта
 
-from database.models import user, product, order_item, order
+from database.models import user, product, order_item, order, customization

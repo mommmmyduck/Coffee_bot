@@ -7,8 +7,12 @@ from database.database import init_db
 from bot.handlers.users_handlers import router as users_router
 from bot.handlers.menu_handlers import router as menu_router
 from bot.middlewares.user_middleware import AttachUserMiddleware  
-from bot.handlers import admin_handlers
+from bot.handlers import admin_handlers, customization_handlers
 from bot.handlers import order_handlers
+from bot.handlers import history_handlers  
+from bot.handlers import staff_handlers
+from bot.handlers.profile_handlers import router as profile_router  # 👈 НОВЫЙ
+from bot.handlers.admin_user_handlers import router as admin_user_router  
 
 async def main():
     # 1️⃣ Инициализация базы данных
@@ -28,6 +32,11 @@ async def main():
     dp.include_router(menu_router)
     dp.include_router(admin_handlers.router)
     dp.include_router(order_handlers.router)
+    dp.include_router(history_handlers.router) 
+    dp.include_router(staff_handlers.router)  
+    dp.include_router(customization_handlers.router) 
+    dp.include_router(profile_router)  
+    dp.include_router(admin_user_router)
     
     # 5️⃣ Запуск бота
     print("Бот запущен")

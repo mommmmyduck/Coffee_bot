@@ -54,6 +54,9 @@ async def show_category_products(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("product:"))
 async def show_product_detail(callback: CallbackQuery):
+    """
+    Показать детали товара с фотографией
+    """
     product_id = int(callback.data.split(":")[1])
     product = await get_product_by_id(product_id)
     
@@ -61,35 +64,77 @@ async def show_product_detail(callback: CallbackQuery):
         await callback.answer("Товар не найден", show_alert=True)
         return
     
+    # Формируем текст описания
     text = f"<b>{product.name}</b>\n\n"
+    
     if product.description:
         text += f"{product.description}\n\n"
+    
+    text += "📊 <b>Информация:</b>\n"
+    
     if product.volume:
         text += f"📏 Объём: {product.volume} мл\n"
+    
     if product.weight:
         text += f"⚖️ Вес: {product.weight} г\n"
-    text += f"\n💰 Цена: <b>{product.price} ₽</b>"
-
+    
+    if product.calories:
+        text += f"🔥 Калорийность: {product.calories} ккал\n"
+    
+    # Статус наличия
     if product.is_active:
         text += f"\n✅ Статус: <b>В наличии</b>"
     else:
         text += f"\n❌ Статус: <b>Нет в наличии</b>"
-
-    # Фото или текст
+    
+    text += f"\n\n💰 Цена: <b>{product.price} ₽</b>"
+    
+    # ✅ ИСПРАВЛЕНО: Обработка фото с try-except
     if product.image_url:
-        await callback.message.delete()
-        await callback.message.answer_photo(
-            photo=product.image_url,
-            caption=text,
-            reply_markup=get_product_detail_keyboard(product),
-            parse_mode="HTML"
-        )
+        try:
+            # Пробуем удалить старое сообщение
+            await callback.message.delete()
+            
+            # Пробуем отправить с фото
+            await callback.message.answer_photo(
+                photo=product.image_url,
+                caption=text,
+                reply_markup=get_product_detail_keyboard(product),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            print(f"Ошибка загрузки фото для товара {product.id}: {e}")
+            
+            # Если фото не грузится - отправляем без фото
+            try:
+                await callback.message.edit_text(
+                    text + "\n\n⚠️ Фото временно недоступно",
+                    reply_markup=get_product_detail_keyboard(product),
+                    parse_mode="HTML"
+                )
+            except:
+                # Если не получается отредактировать - отправляем новое
+                await callback.message.answer(
+                    text + "\n\n⚠️ Фото временно недоступно",
+                    reply_markup=get_product_detail_keyboard(product),
+                    parse_mode="HTML"
+                )
     else:
-        await callback.message.edit_text(
-            text,
-            reply_markup=get_product_detail_keyboard(product),
-            parse_mode="HTML"
-        )
+        # Если нет фото - просто текст
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=get_product_detail_keyboard(product),
+                parse_mode="HTML"
+            )
+        except:
+            # Если не получается отредактировать - отправляем новое
+            await callback.message.delete()
+            await callback.message.answer(
+                text,
+                reply_markup=get_product_detail_keyboard(product),
+                parse_mode="HTML"
+            )
     
     await callback.answer()
 
@@ -104,12 +149,24 @@ async def product_unavailable_handler(callback: CallbackQuery):
 
 @router.callback_query(F.data == "back_to_categories")
 async def back_to_categories(callback: CallbackQuery):
-    # Удаляем сообщение с товаром (где было фото)
-    await callback.message.delete()
+    """
+    Вернуться к списку категорий
+    """
+    try:
+        # Пытаемся отредактировать текущее сообщение
+        await callback.message.edit_text(
+            "Выберите категорию:",
+            reply_markup=get_categories_keyboard()
+        )
+    except Exception:
+        # Если не получилось (например, это было фото), удаляем и создаём новое
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        await callback.message.answer(
+            "Выберите категорию:",
+            reply_markup=get_categories_keyboard()
+        )
     
-    # Отправляем новое сообщение с выбором категорий
-    await callback.message.answer(
-        text="Выберите категорию меню:",
-        reply_markup=get_categories_keyboard() # Твоя функция клавиатуры категорий
-    )
     await callback.answer()

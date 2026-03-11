@@ -29,6 +29,9 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String)
     weight: Mapped[int | None] = mapped_column(Integer)  # в граммах
     
+    # ✅ НОВОЕ: калорийность
+    calories: Mapped[int | None] = mapped_column(Integer)  # ккал
+    
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     
     def __repr__(self):
