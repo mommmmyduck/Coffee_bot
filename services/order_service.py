@@ -527,3 +527,91 @@ async def increment_total_cups(user_id: int, cups: int = 1) -> User | None:
         await session.commit()
         await session.refresh(user)
         return user
+
+
+async def format_cart_text(order) -> str:
+    """
+    Форматировать текст корзины с кастомизацией
+    Единая функция для всех мест, где показывается корзина
+    """
+    if not order or not order.items:
+        return "🛒 Корзина пуста"
+    
+    text = "🛒 <b>Ваша корзина:</b>\n\n"
+    
+    for item in order.items:
+        # Название товара и количество
+        text += f"• {item.product.name} x{item.quantity}\n"
+        
+        # Цена за позицию
+        item_total = float(item.product.price) * item.quantity
+        text += f"  💰 {item_total} ₽\n"
+        
+        # Показываем кастомизацию если есть
+        if hasattr(item, 'customization') and item.customization:
+            c = item.customization
+            customizations = []
+            
+            # Молоко
+            if c.milk_type and c.milk_type != "regular":
+                milk_names = {
+                    "almond": "миндальное молоко",
+                    "coconut": "кокосовое молоко",
+                    "soy": "соевое молоко",
+                    "lactose_free": "безлактозное молоко"
+                }
+                if c.milk_type in milk_names:
+                    customizations.append(milk_names[c.milk_type])
+            
+            # Сахар
+            if c.sugar_count and c.sugar_count > 0:
+                sugar_text = {1: "🍬 1 ложка", 2: "🍬🍬 2 ложки", 3: "🍬🍬🍬 3 ложки"}
+                customizations.append(sugar_text.get(c.sugar_count, f"сахар {c.sugar_count} л."))
+            
+            # Температура
+            if c.temperature:
+                temp_names = {
+                    "cold": "❄️ айс",
+                    "warm": "🔥 тёплый",
+                    "hot": "☕️ горячий"
+                }
+                if c.temperature in temp_names:
+                    customizations.append(temp_names[c.temperature])
+            
+            # Топпинги
+            toppings = []
+            if c.whipped_cream:
+                toppings.append("🥛 сливки")
+            if c.cinnamon:
+                toppings.append("⚜️ корица")
+            if c.cocoa:
+                toppings.append("🍫 какао")
+            if c.caramel_syrup:
+                toppings.append("🍯 карамель")
+            if c.vanilla_syrup:
+                toppings.append("🌿 ваниль")
+            
+            if toppings:
+                customizations.append("➕ " + ", ".join(toppings))
+            
+            if customizations:
+                text += f"  <i>({', '.join(customizations)})</i>\n"
+        
+        text += "\n"
+    
+    # Итоговая сумма
+    text += f"<b>Итого: {order.total_price} ₽</b>"
+    
+    return text
+
+
+async def format_cart_text_short(order) -> str:
+    """
+    Краткий текст корзины (без деталей кастомизации)
+    Используется в уведомлениях
+    """
+    if not order or not order.items:
+        return "🛒 Корзина пуста"
+    
+    items_count = sum(item.quantity for item in order.items)
+    return f"🛒 Корзина: {items_count} товаров на {order.total_price} ₽"

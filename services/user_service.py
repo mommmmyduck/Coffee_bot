@@ -173,3 +173,17 @@ async def get_all_users(limit: int = 100) -> list[User]:
         stmt = select(User).limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
+    
+#функция получения сотрудников
+async def get_staff_users() -> list[User]:
+    """
+    Получить всех сотрудников (seller и owner)
+    """
+    from database.database import SessionLocal
+    from database.models.user import User
+    from sqlalchemy import select
+    
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.role.in_(["seller", "owner"]))
+        result = await session.execute(stmt)
+        return result.scalars().all()

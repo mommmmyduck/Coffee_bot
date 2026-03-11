@@ -53,7 +53,7 @@ def get_cart_keyboard(order, is_staff: bool = False) -> InlineKeyboardMarkup:
                 toppings.append("🌿")
             
             if toppings:
-                custom_icons.extend(toppings[:2])  # Показываем только первые 2 иконки, чтобы не было слишком длинно
+                custom_icons.extend(toppings[:2])  # Показываем только первые 2 иконки
             
             if custom_icons:
                 item_text += f" [{''.join(custom_icons)}]"
@@ -102,61 +102,3 @@ def get_payment_method_keyboard(order_id: int) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="◀️ Назад в корзину", callback_data="/cart")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-async def get_cart_text(order) -> str:
-    """
-    Форматировать текст корзины с кастомизацией
-    """
-    text = "🛒 <b>Ваша корзина:</b>\n\n"
-    
-    for item in order.items:
-        text += f"• {item.product.name} x{item.quantity}\n"
-        text += f"  💰 {item.product.price * item.quantity} ₽\n"
-        
-        # Показываем кастомизацию если есть
-        if hasattr(item, 'customization') and item.customization:
-            c = item.customization
-            customizations = []
-            
-            if c.milk_type:
-                milk_names = {
-                    "regular": "обычное молоко",
-                    "almond": "миндальное молоко",
-                    "coconut": "кокосовое молоко",
-                    "soy": "соевое молоко",
-                    "lactose_free": "безлактозное молоко"
-                }
-                if c.milk_type in milk_names:
-                    customizations.append(milk_names[c.milk_type])
-            
-            if c.sugar_count and c.sugar_count > 0:
-                customizations.append(f"сахар {c.sugar_count} л.")
-            
-            if c.temperature:
-                if c.temperature == "cold":
-                    customizations.append("❄️ айс")
-                elif c.temperature == "warm":
-                    customizations.append("🔥 тёплый")
-            
-            toppings = []
-            if c.whipped_cream:
-                toppings.append("сливки")
-            if c.cinnamon:
-                toppings.append("корица")
-            if c.cocoa:
-                toppings.append("какао")
-            if c.caramel_syrup:
-                toppings.append("карамель")
-            if c.vanilla_syrup:
-                toppings.append("ваниль")
-            
-            if toppings:
-                customizations.append("➕ " + ", ".join(toppings))
-            
-            if customizations:
-                text += f"  <i>({', '.join(customizations)})</i>\n"
-        
-        text += "\n"
-    
-    text += f"<b>Итого: {order.total_price} ₽</b>"
-    return text

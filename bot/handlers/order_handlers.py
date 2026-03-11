@@ -5,6 +5,7 @@ from bot.keyboards.order_keyboards import get_cart_keyboard, get_payment_method_
 from config import PROVIDER_TOKEN
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from services.notification_service import notify_staff_new_order, notify_staff_order_cancelled
 
 from database.models.product import ProductCategory
 from services.menu_service import get_product_by_id
@@ -16,7 +17,10 @@ from services.order_service import (
     cancel_order,
     finalize_order,
     spend_bonus_points,
-    get_order_by_id
+    get_order_by_id,
+    get_awaiting_payment_order,
+    format_cart_text,  # 👈 ДОБАВЛЯЕМ ИМПОРТ
+    format_cart_text_short  # 👈 ОПЦИОНАЛЬНО
 )
 from database.database import SessionLocal
 from database.models.order import Order
@@ -87,14 +91,11 @@ async def start_customization(callback: CallbackQuery, state: FSMContext):
 async def show_cart(message: Message):
     user = message.from_user._user
     
-    from bot.keyboards.order_keyboards import get_cart_text
-    from services.order_service import get_awaiting_payment_order
-    
     # Проверяем, есть ли заказ, ожидающий оплаты
     awaiting_order = await get_awaiting_payment_order(user.id)
     
     if awaiting_order:
-        cart_text = await get_cart_text(awaiting_order)
+        cart_text = await format_cart_text(awaiting_order)  # 👈 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ
         await message.answer(
             f"⏳ <b>У вас есть заказ, ожидающий оплаты</b>\n\n"
             f"{cart_text}\n\n"
@@ -108,7 +109,7 @@ async def show_cart(message: Message):
     order = await get_user_cart(user.id)
     if order and order.items:
         is_staff = user.role in ("seller", "owner")
-        cart_text = await get_cart_text(order)
+        cart_text = await format_cart_text(order)  # 👈 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ
         await message.answer(
             cart_text,
             reply_markup=get_cart_keyboard(order, is_staff=is_staff),
@@ -131,10 +132,15 @@ async def remove_item_handler(callback: CallbackQuery):
 
     if order and order.items:
         is_staff = user.role in ("seller", "owner")
-        keyboard = get_cart_keyboard(order, is_staff=is_staff)
-        await callback.message.edit_reply_markup(reply_markup=keyboard)
+        # 👇 ОБНОВЛЯЕМ ТЕКСТ ПРИ УДАЛЕНИИ
+        cart_text = await format_cart_text(order)
+        await callback.message.edit_text(
+            cart_text,
+            reply_markup=get_cart_keyboard(order, is_staff=is_staff),
+            parse_mode="HTML"
+        )
     else:
-        await callback.message.edit_text("Корзина пуста")
+        await callback.message.edit_text("🛒 Корзина пуста")
 
     await callback.answer()
 
@@ -147,19 +153,42 @@ async def confirm_order_handler(callback: CallbackQuery):
     """Показать выбор способа оплаты"""
     order_id = int(callback.data.split(":")[1])
     
+    # 👇 НЕ вызываем confirm_order здесь!
+    # Просто получаем заказ для отображения
+    from services.order_service import get_order_by_id
     order = await get_order_by_id(order_id)
     
     if not order:
-        await callback.message.edit_text("Заказ не найден.")
+        await callback.message.edit_text("❌ Заказ не найден.")
         await callback.answer()
         return
     
+    # Показываем кнопки выбора способа оплаты
     await callback.message.edit_text(
-        f"Заказ №{order.id} сформирован.\n"
+        f"✅ Заказ №{order.id} сформирован!\n\n"
         f"💰 Сумма: {order.total_price} ₽\n\n"
-        f"Выберите способ оплаты:",
+        f"Теперь выберите способ оплаты:",
         reply_markup=get_payment_method_keyboard(order.id)
     )
+    
+    await callback.answer()
+# -----------------------
+# Отмена заказа
+# -----------------------
+
+@router.callback_query(F.data.startswith("cancel_order:"))
+async def cancel_order_handler(callback: CallbackQuery):
+    order_id = int(callback.data.split(":")[1])
+    order = await cancel_order(order_id)
+
+    if order:
+        # ✅ НОВОЕ: Уведомляем баристов об отмене
+        await notify_staff_order_cancelled(order, cancelled_by_user=True)
+        
+        await callback.message.edit_text("❌ Заказ отменён")
+    else:
+        await callback.message.edit_text("Ошибка при отмене заказа")
+
     await callback.answer()
 
 
@@ -269,6 +298,9 @@ async def use_bonus_handler(callback: CallbackQuery, state: FSMContext):
         # Для наличных - сразу подтверждаем
         confirmed_order = await confirm_order(order_id, "cash")
         if confirmed_order:
+            # 👇 УВЕДОМЛЯЕМ БАРИСТА
+            await notify_staff_new_order(confirmed_order)
+            
             await callback.message.edit_text(
                 f"✅ Заказ №{order_id} принят!\n"
                 f"💵 Оплата при получении.\n"
@@ -306,7 +338,6 @@ async def use_bonus_handler(callback: CallbackQuery, state: FSMContext):
     
     await callback.answer()
 
-
 # -----------------------
 # Пропустить использование бонусов
 # -----------------------
@@ -322,6 +353,9 @@ async def skip_bonus_handler(callback: CallbackQuery):
         # Для наличных - сразу подтверждаем
         confirmed_order = await confirm_order(order_id, "cash")
         if confirmed_order:
+            # 👇 УВЕДОМЛЯЕМ БАРИСТА
+            await notify_staff_new_order(confirmed_order)
+            
             await callback.message.edit_text(
                 f"✅ Заказ №{order_id} принят!\n"
                 f"💵 Оплата при получении.\n"
@@ -481,21 +515,6 @@ async def cancel_payment_handler(callback: CallbackQuery):
     await callback.answer()
 
 
-# -----------------------
-# Отмена заказа
-# -----------------------
-@router.callback_query(F.data.startswith("cancel_order:"))
-async def cancel_order_handler(callback: CallbackQuery):
-    order_id = int(callback.data.split(":")[1])
-    order = await cancel_order(order_id)
-
-    if order:
-        await callback.message.edit_text("❌ Заказ отменён")
-    else:
-        await callback.message.edit_text("Ошибка при отмене заказа")
-
-    await callback.answer()
-
 
 # -----------------------
 # Завершение заказа для сотрудников
@@ -542,6 +561,9 @@ async def successful_payment_handler(message: Message):
     order = await confirm_payment(order_id)
     
     if order:
+        # 👇 УВЕДОМЛЯЕМ БАРИСТА
+        await notify_staff_new_order(order)
+        
         await message.answer(
             f"✅ Оплата прошла успешно!\n\n"
             f"Ваш заказ №{order_id} передан в работу.\n"
@@ -552,30 +574,4 @@ async def successful_payment_handler(message: Message):
         await message.answer(
             f"❌ Ошибка при обработке заказа.\n"
             f"Пожалуйста, обратитесь к администратору."
-        )
-
-
-# -----------------------
-# Устаревший checkout (можно удалить)
-# -----------------------
-@router.callback_query(F.data == "checkout")
-async def checkout_handler(callback: CallbackQuery):
-    """Этап 1: Выбор способа оплаты"""
-    user = callback.from_user._user
-    order = await get_user_cart(user.id)
-    
-    if not order or not order.items:
-        await callback.answer("Ваша корзина пуста!", show_alert=True)
-        return
-
-    if callback.message.text or callback.message.caption:
-        await callback.message.edit_text(
-            f"Сумма к оплате: {order.total_price} ₽\nВыберите способ оплаты:",
-            reply_markup=get_payment_method_keyboard(order.id)
-        )
-    else:
-        await callback.message.delete()
-        await callback.message.answer(
-            f"Сумма к оплате: {order.total_price} ₽\nВыберите способ оплаты:",
-            reply_markup=get_payment_method_keyboard(order.id)
         )
