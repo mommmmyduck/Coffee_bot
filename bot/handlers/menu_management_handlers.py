@@ -18,10 +18,12 @@ router = Router()
 @staff_required
 async def menu_management(message: Message):
     """Главное меню управления товарами"""
+    user = message.from_user._user
+    
     text = "⚙️ <b>Управление меню</b>\n\n"
     text += "Выберите действие:"
     
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(
             text="🔄 Изменить доступность товара",
             callback_data="menu_toggle_product"
@@ -30,7 +32,16 @@ async def menu_management(message: Message):
             text="📋 Список всех товаров",
             callback_data="menu_list_all"
         )],
-    ])
+    ]
+    
+    # Для админа добавляем полный функционал
+    if user.role == "owner":
+        buttons.insert(0, [InlineKeyboardButton(
+            text="⚙️ Полное управление (Админ)",
+            callback_data="admin_menu_management"
+        )])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 

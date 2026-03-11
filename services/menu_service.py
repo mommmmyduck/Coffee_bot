@@ -201,3 +201,73 @@ def format_product_details(product) -> str:
         details.append(f"🔥 Калории: {product.calories} ккал")
     
     return "\n".join(details) if details else "Нет дополнительной информации"
+
+async def create_product_full(
+    name: str,
+    price: float,
+    category: ProductCategory,
+    description: str | None = None,
+    volume: str | None = None,
+    weight: int | None = None,
+    calories: int | None = None,
+    image_url: str | None = None,
+) -> Product:
+    """
+    Создать новый продукт (расширенная версия)
+    """
+    async with SessionLocal() as session:
+        product = Product(
+            name=name,
+            price=price,
+            category=category,
+            description=description,
+            volume=volume,
+            weight=weight,
+            calories=calories,
+            image_url=image_url,
+        )
+        
+        session.add(product)
+        await session.commit()
+        await session.refresh(product)
+        return product
+
+
+async def update_product_field(product_id: int, field: str, value) -> Product | None:
+    """
+    Обновить поле товара
+    field: 'name', 'price', 'description', 'volume', 'weight', 'calories', 'image_url'
+    """
+    async with SessionLocal() as session:
+        stmt = select(Product).where(Product.id == product_id)
+        result = await session.execute(stmt)
+        product = result.scalars().first()
+        
+        if not product:
+            return None
+        
+        # Обновляем поле
+        if hasattr(product, field):
+            setattr(product, field, value)
+            await session.commit()
+            await session.refresh(product)
+            return product
+        
+        return None
+
+
+async def delete_product(product_id: int) -> bool:
+    """
+    Удалить товар из меню
+    """
+    async with SessionLocal() as session:
+        stmt = select(Product).where(Product.id == product_id)
+        result = await session.execute(stmt)
+        product = result.scalars().first()
+        
+        if not product:
+            return False
+        
+        await session.delete(product)
+        await session.commit()
+        return True
