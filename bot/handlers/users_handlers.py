@@ -1,7 +1,8 @@
+# bot/handlers/users_handlers.py
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
-from services.user_service import get_or_create_user, list_staff, set_user_role
+from services.user_service import get_or_create_user, list_staff, set_user_role, update_user_phone
 from bot.utils.decorators import admin_required
 from bot.keyboards.user_keyboards import get_main_keyboard, get_admin_keyboard, get_staff_keyboard 
 
@@ -33,7 +34,27 @@ async def cmd_start(message: Message):
     """
     user = message.from_user._user
     
-    # Формируем приветствие
+    # ✅ НОВОЕ: Проверяем есть ли номер телефона
+    if not user.phone_number:
+        # Запрашиваем номер телефона
+        text = f"👋 Добро пожаловать, {user.first_name or 'друг'}!\n\n"
+        text += "Для оформления заказов нам нужен ваш номер телефона.\n"
+        text += "Это нужно, чтобы мы могли связаться с вами по заказу.\n\n"
+        text += "Нажмите кнопку ниже, чтобы поделиться номером:"
+        
+        # Кнопка для запроса контакта
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="📱 Поделиться номером", request_contact=True)]
+            ],
+            resize_keyboard=True,
+            one_time_keyboard=True
+        )
+        
+        await message.answer(text, reply_markup=keyboard)
+        return
+    
+    # Если номер уже есть, показываем главное меню
     text = f"Привет, {user.first_name}! 👋\n\n"
     
     # Информация о роли
@@ -53,6 +74,32 @@ async def cmd_start(message: Message):
         text,
         reply_markup=get_keyboard_for_user(user)
     )
+
+
+# ✅ НОВОЕ: Обработчик получения контакта
+@router.message(F.contact)
+async def receive_contact(message: Message):
+    """Получить номер телефона пользователя"""
+    contact = message.contact
+    
+    # Проверяем, что номер принадлежит тому, кто его отправил
+    if contact.user_id != message.from_user.id:
+        await message.answer("❌ Вы можете отправить только свой номер телефона!")
+        return
+    
+    # Обновляем номер телефона
+    user = await update_user_phone(contact.user_id, contact.phone_number)
+    
+    if user:
+        text = "✅ Спасибо! Номер телефона сохранён.\n\n"
+        text += "Теперь вы можете пользоваться ботом!"
+        
+        await message.answer(
+            text,
+            reply_markup=get_keyboard_for_user(user)
+        )
+    else:
+        await message.answer("❌ Ошибка сохранения номера. Попробуйте /start")
 
 
 @router.message(Command("staff"))
@@ -105,5 +152,4 @@ async def cmd_set_role(message: Message):
     await message.answer(f"✅ Роль пользователя {target_user.first_name} установлена на {role}")
 
 
-
-    __all__ = ['router', 'get_keyboard_for_user']
+__all__ = ['router', 'get_keyboard_for_user']

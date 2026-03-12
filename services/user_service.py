@@ -8,8 +8,8 @@ from database.models.user import User
 async def get_or_create_user(
     telegram_id: int,
     username: str | None = None,
-    first_name: str | None = None,  # больше не используем для обновления
-    last_name: str | None = None,   # больше не используем для обновления
+    first_name: str | None = None,
+    last_name: str | None = None,
 ) -> User:
     """
     Получить пользователя по telegram_id или создать нового.
@@ -37,8 +37,8 @@ async def get_or_create_user(
         new_user = User(
             telegram_id=telegram_id,
             username=username,
-            first_name=first_name,  # при создании берем из Telegram
-            last_name=last_name,    # при создании берем из Telegram
+            first_name=first_name,
+            last_name=last_name,
         )
         session.add(new_user)
         await session.commit()
@@ -70,6 +70,24 @@ async def update_user_profile(
         await session.commit()
         await session.refresh(user)
         return user
+
+
+async def update_user_phone(telegram_id: int, phone_number: str) -> User | None:
+    """
+    Обновить номер телефона пользователя
+    """
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.phone_number = phone_number
+            await session.commit()
+            await session.refresh(user)
+            return user
+        
+        return None
 
 
 async def set_user_role(telegram_id: int, role: str) -> User | None:
@@ -125,6 +143,13 @@ async def list_staff() -> list[User]:
         return staff
 
 
+async def get_staff_users() -> list[User]:
+    """
+    Получить всех сотрудников (seller и owner) - алиас для list_staff
+    """
+    return await list_staff()
+
+
 async def search_users(query: str) -> list[User]:
     """
     Поиск пользователей по имени, фамилии или username
@@ -154,6 +179,16 @@ async def get_user_by_telegram_id(telegram_id: int) -> User | None:
         return result.scalars().first()
 
 
+async def get_user_by_id(user_id: int) -> User | None:
+    """
+    Получить пользователя по ID (для заказов)
+    """
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.id == user_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+
 async def get_user_by_username(username: str) -> User | None:
     """
     Получить пользователя по username (без @)
@@ -173,17 +208,75 @@ async def get_all_users(limit: int = 100) -> list[User]:
         stmt = select(User).limit(limit)
         result = await session.execute(stmt)
         return result.scalars().all()
-    
-#функция получения сотрудников
-async def get_staff_users() -> list[User]:
+
+
+# ========================
+# 👇 ФУНКЦИИ ДЛЯ БЛОКИРОВКИ
+# ========================
+
+async def block_user_by_phone(phone_number: str) -> bool:
     """
-    Получить всех сотрудников (seller и owner)
+    Заблокировать пользователя по номеру телефона
     """
-    from database.database import SessionLocal
-    from database.models.user import User
-    from sqlalchemy import select
-    
     async with SessionLocal() as session:
-        stmt = select(User).where(User.role.in_(["seller", "owner"]))
+        stmt = select(User).where(User.phone_number == phone_number)
         result = await session.execute(stmt)
-        return result.scalars().all()
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = True
+            await session.commit()
+            return True
+        
+        return False
+
+
+async def unblock_user_by_phone(phone_number: str) -> bool:
+    """
+    Разблокировать пользователя по номеру телефона
+    """
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.phone_number == phone_number)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = False
+            await session.commit()
+            return True
+        
+        return False
+
+
+async def block_user_by_telegram_id(telegram_id: int) -> bool:
+    """
+    Заблокировать пользователя по telegram_id
+    """
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = True
+            await session.commit()
+            return True
+        
+        return False
+
+
+async def unblock_user_by_telegram_id(telegram_id: int) -> bool:
+    """
+    Разблокировать пользователя по telegram_id
+    """
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = False
+            await session.commit()
+            return True
+        
+        return False

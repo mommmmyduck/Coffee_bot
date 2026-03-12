@@ -7,7 +7,7 @@ from database.database import init_db
 from bot.handlers.users_handlers import router as users_router
 from bot.handlers.menu_handlers import router as menu_router
 from bot.middlewares.user_middleware import AttachUserMiddleware  
-from bot.handlers import admin_handlers, analytics_handlers, customization_handlers, menu_management_handlers, user_orders_handlers
+from bot.handlers import admin_handlers, analytics_handlers, broadcast_handlers, customization_handlers, discount_handlers, menu_management_handlers, user_orders_handlers
 from bot.handlers import order_handlers
 from bot.handlers import history_handlers  
 from bot.handlers import staff_handlers
@@ -43,6 +43,8 @@ async def main():
     dp.include_router(user_orders_handlers.router)
     dp.include_router(menu_admin_handlers.router)
     dp.include_router(analytics_handlers.router)
+    dp.include_router(broadcast_handlers.router)
+    dp.include_router(discount_handlers.router)
     
     # 5️⃣ Запуск бота
     print("Бот запущен")

@@ -72,6 +72,15 @@ async def show_product_detail(callback: CallbackQuery):
     
     text += "📊 <b>Информация:</b>\n"
     
+    # ✅ ЦЕНА СО СКИДКОЙ (ПЕРЕНЕСЕНО ВВЕРХ)
+    if product.discount and product.discount > 0:
+        original_price = float(product.price)
+        discounted_price = product.get_discounted_price()
+        text += f"💰 <s>{original_price} ₽</s> <b>{discounted_price:.0f} ₽</b>\n"
+        text += f"🏷️ Скидка: {product.discount}%\n\n"
+    else:
+        text += f"💰 Цена: {product.price} ₽\n\n"
+    
     if product.volume:
         text += f"📏 Объём: {product.volume} мл\n"
     
@@ -86,8 +95,6 @@ async def show_product_detail(callback: CallbackQuery):
         text += f"\n✅ Статус: <b>В наличии</b>"
     else:
         text += f"\n❌ Статус: <b>Нет в наличии</b>"
-    
-    text += f"\n\n💰 Цена: <b>{product.price} ₽</b>"
     
     # ✅ ИСПРАВЛЕНО: Обработка фото с try-except
     if product.image_url:

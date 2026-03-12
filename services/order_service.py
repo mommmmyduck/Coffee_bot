@@ -31,7 +31,7 @@ async def get_user_cart(user_id: int) -> Order | None:
 
 
 async def update_order_total(order_id: int) -> None:
-    """Обновить общую сумму заказа"""
+    """Обновить общую сумму заказа с учётом скидок"""
     async with SessionLocal() as session:
         # Получаем заказ с товарами
         stmt = (
@@ -45,13 +45,24 @@ async def update_order_total(order_id: int) -> None:
         if not order:
             return
         
-        # Пересчитываем сумму
+        # ✅ НОВОЕ: Пересчитываем сумму с учётом скидок
         total = 0.0
         for item in order.items:
-            price = float(item.product.price)
+            # Используем метод get_discounted_price() если он есть,
+            # иначе обычную цену
+            if hasattr(item.product, 'get_discounted_price'):
+                price = item.product.get_discounted_price()
+            else:
+                price = float(item.product.price)
+            
             total += price * item.quantity
         
         order.total_price = total
+        
+        # Также пересчитываем бонусы (если нужно)
+        # BONUS_RATE = 0.05
+        # order.bonus_points = int(total * BONUS_RATE)
+        
         await session.commit()
 
 

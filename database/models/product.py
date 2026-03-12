@@ -29,10 +29,17 @@ class Product(Base):
     image_url: Mapped[str | None] = mapped_column(String)
     weight: Mapped[int | None] = mapped_column(Integer)  # в граммах
     
-    # ✅ НОВОЕ: калорийность
+    
     calories: Mapped[int | None] = mapped_column(Integer)  # ккал
+    discount: Mapped[int] = mapped_column(Integer, default=0)  # 0-100%
     
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    def get_discounted_price(self) -> float:
+        """Получить цену с учётом скидки"""
+        if self.discount > 0:
+            return float(self.price) * (1 - self.discount / 100)
+        return float(self.price)
     
     def __repr__(self):
         return f"<Product(id={self.id}, name={self.name}, price={self.price})>"

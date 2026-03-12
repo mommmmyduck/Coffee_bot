@@ -58,16 +58,21 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
             KeyboardButton(text="🛒 Корзина"),
         ],
         [
-            KeyboardButton(text="📦 История заказов"),
+            KeyboardButton(text="📦 Мои заказы"),
             KeyboardButton(text="👤 Профиль"),
         ],
         [
-            KeyboardButton(text="📊 Активные заказы"),  # ← НОВОЕ
+            KeyboardButton(text="📊 Активные заказы"),
             KeyboardButton(text="⚙️ Управление меню"),
         ],
         [
             KeyboardButton(text="👥 Пользователи"),
             KeyboardButton(text="📈 Статистика"),
+        ],
+        # ✅ НОВЫЕ КНОПКИ
+        [
+            KeyboardButton(text="📢 Рассылка"),
+            KeyboardButton(text="🏷️ Скидки"),
         ],
     ]
     

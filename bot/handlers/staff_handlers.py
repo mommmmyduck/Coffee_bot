@@ -4,8 +4,9 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.utils.decorators import staff_required
 from services.notification_service import notify_customer_status_change
-from services.order_service import get_active_orders, mark_order_as_completed
-from bot.utils.time_utils import format_order_time  # 👈 импортируем
+from services.order_service import get_active_orders, mark_order_as_completed, get_order_by_id
+from services.user_service import get_user_by_id  # 👈 ДОБАВЛЯЕМ
+from bot.utils.time_utils import format_order_time
 
 router = Router()
 
@@ -87,12 +88,22 @@ async def show_active_orders(message: Message):
     buttons = []
     
     for order in orders:
+        # ✅ НОВОЕ: Получаем информацию о клиенте
+        user = await get_user_by_id(order.user_id)
+        
         # Способ оплаты
         payment_emoji = "💵" if order.payment_method == "cash" else "💳"
         payment_text = "Наличными" if order.payment_method == "cash" else "Картой"
         
         text += f"🆔 <b>Заказ №{order.id}</b>\n"
-        text += f"⏰ Время: {format_order_time(order.created_at)}\n"  # 👈 конвертируем время
+        text += f"⏰ Время: {format_order_time(order.created_at)}\n"
+        
+        # ✅ НОВОЕ: Показываем телефон клиента
+        if user and user.phone_number:
+            text += f"📱 Телефон: {user.phone_number}\n"
+        elif user:
+            text += f"👤 Клиент: {user.first_name or 'Неизвестно'}\n"
+        
         text += f"💰 Сумма: {order.total_price} ₽\n"
         text += f"{payment_emoji} Оплата: {payment_text}\n"
         
@@ -127,13 +138,23 @@ async def complete_order_callback(callback: CallbackQuery):
     Завершить заказ (кнопка для бариста)
     """
     order_id = int(callback.data.split(":")[1])
-    order = await mark_order_as_completed(order_id)
     
-    if order:
-        await notify_customer_status_change(order)
+    # 👇 Получаем заказ через правильную функцию
+    from services.order_service import get_order_by_id, mark_order_as_completed
+    order = await get_order_by_id(order_id)
+    
+    if not order:
+        await callback.answer("❌ Заказ не найден", show_alert=True)
+        return
+    
+    # Завершаем заказ
+    completed_order = await mark_order_as_completed(order_id)
+    
+    if completed_order:
+        # Уведомляем клиента
+        await notify_customer_status_change(completed_order)
         
         await callback.answer(f"✅ Заказ №{order_id} завершён! Клиент уведомлён.", show_alert=True)
-        
         
         # Обновляем список активных заказов
         orders = await get_active_orders()
@@ -147,11 +168,21 @@ async def complete_order_callback(callback: CallbackQuery):
         buttons = []
         
         for o in orders:
+            # ✅ НОВОЕ: Получаем информацию о клиенте
+            user = await get_user_by_id(o.user_id)
+            
             payment_emoji = "💵" if o.payment_method == "cash" else "💳"
             payment_text = "Наличными" if o.payment_method == "cash" else "Картой"
             
             text += f"🆔 <b>Заказ №{o.id}</b>\n"
-            text += f"⏰ Время: {format_order_time(o.created_at)}\n"  # 👈 конвертируем время
+            text += f"⏰ Время: {format_order_time(o.created_at)}\n"
+            
+            # ✅ НОВОЕ: Показываем телефон клиента
+            if user and user.phone_number:
+                text += f"📱 Телефон: {user.phone_number}\n"
+            elif user:
+                text += f"👤 Клиент: {user.first_name or 'Неизвестно'}\n"
+            
             text += f"💰 Сумма: {o.total_price} ₽\n"
             text += f"{payment_emoji} Оплата: {payment_text}\n"
             text += "📋 <b>Состав заказа:</b>\n"
@@ -176,4 +207,4 @@ async def complete_order_callback(callback: CallbackQuery):
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     else:
-        await callback.answer("❌ Заказ не найден", show_alert=True)
+        await callback.answer("❌ Не удалось завершить заказ", show_alert=True)

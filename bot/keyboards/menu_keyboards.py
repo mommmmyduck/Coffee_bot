@@ -7,8 +7,19 @@ def get_categories_keyboard() -> InlineKeyboardMarkup:
     """
     Inline-клавиатура с категориями товаров
     """
+    # Словарь для красивого отображения категорий
+    category_names = {
+        ProductCategory.coffee: "☕ Кофе",
+        ProductCategory.non_coffee: "🍵 Не кофе",
+        ProductCategory.bakery: "🥐 Выпечка",
+        ProductCategory.desserts: "🍰 Десерты",
+    }
+    
     buttons = [
-        [InlineKeyboardButton(text=cat.value, callback_data=f"category:{cat.name}")]
+        [InlineKeyboardButton(
+            text=category_names[cat], 
+            callback_data=f"category:{cat.name}"
+        )]
         for cat in ProductCategory
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -16,12 +27,19 @@ def get_categories_keyboard() -> InlineKeyboardMarkup:
 
 def get_products_keyboard(products) -> InlineKeyboardMarkup:
     """
-    Inline-клавиатура с товарами внутри категории
+    Inline-клавиатура с товарами внутри категории с отображением скидок
     """
     buttons = []
     for product in products:
         status = "✅" if product.is_active else "❌"
-        price_text = f"{product.price} ₽"
+        
+        # Формируем цену с учётом скидки
+        if hasattr(product, 'discount') and product.discount and product.discount > 0:
+            discounted = product.get_discounted_price()
+            price_text = f"{product.price}→{discounted:.0f}₽ (-{product.discount}%)"
+        else:
+            price_text = f"{product.price} ₽"
+        
         buttons.append([
             InlineKeyboardButton(
                 text=f"{product.name} {status} — {price_text}",
@@ -38,6 +56,7 @@ def get_products_keyboard(products) -> InlineKeyboardMarkup:
     ])
     
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def get_product_detail_keyboard(product) -> InlineKeyboardMarkup:
     """
