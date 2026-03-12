@@ -1,6 +1,6 @@
 #models/user.py
 from datetime import date
-from sqlalchemy import BigInteger, String, Integer, Date
+from sqlalchemy import BigInteger, String, Integer, Date, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 from database.base import Base
 
@@ -36,6 +36,7 @@ class User(Base):
     middle_name: Mapped[str | None] = mapped_column(String(30))
 
     birth_date: Mapped[date | None] = mapped_column(Date)
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
 
     bonus_points: Mapped[int] = mapped_column(
         Integer,

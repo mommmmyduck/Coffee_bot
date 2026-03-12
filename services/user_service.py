@@ -280,3 +280,32 @@ async def unblock_user_by_telegram_id(telegram_id: int) -> bool:
             return True
         
         return False
+    
+async def block_user_by_phone(phone_number: str) -> bool:
+    """Заблокировать пользователя по номеру телефона"""
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.phone_number == phone_number)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = True
+            await session.commit()
+            return True
+        
+        return False
+
+
+async def unblock_user_by_phone(phone_number: str) -> bool:
+    """Разблокировать пользователя по номеру телефона"""
+    async with SessionLocal() as session:
+        stmt = select(User).where(User.phone_number == phone_number)
+        result = await session.execute(stmt)
+        user = result.scalars().first()
+        
+        if user:
+            user.is_blocked = False
+            await session.commit()
+            return True
+        
+        return False

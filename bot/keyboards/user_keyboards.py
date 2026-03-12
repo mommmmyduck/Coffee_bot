@@ -69,11 +69,11 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
             KeyboardButton(text="👥 Пользователи"),
             KeyboardButton(text="📈 Статистика"),
         ],
-        # ✅ НОВЫЕ КНОПКИ
         [
             KeyboardButton(text="📢 Рассылка"),
             KeyboardButton(text="🏷️ Скидки"),
         ],
+        
     ]
     
     return ReplyKeyboardMarkup(

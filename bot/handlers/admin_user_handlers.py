@@ -3,7 +3,13 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from bot.utils.decorators import admin_required
-from services.user_service import search_users, set_user_role_by_username, list_staff
+from services.user_service import (
+    search_users, 
+    set_user_role_by_username, 
+    list_staff,
+    block_user_by_phone,
+    unblock_user_by_phone
+)
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
@@ -12,6 +18,8 @@ router = Router()
 class AdminUserStates(StatesGroup):
     waiting_for_search = State()
     waiting_for_role_change = State()
+    waiting_for_block = State()      # ← НОВОЕ
+    waiting_for_unblock = State()    # ← НОВОЕ
 
 
 # -----------------------
@@ -26,6 +34,9 @@ async def show_admin_users_menu(chat_id: int, bot, user):
         [InlineKeyboardButton(text="🔍 Поиск пользователя", callback_data="admin_search_user")],
         [InlineKeyboardButton(text="📋 Список сотрудников", callback_data="admin_list_staff")],
         [InlineKeyboardButton(text="➕ Назначить бариста", callback_data="admin_add_staff")],
+        # ✅ НОВЫЕ КНОПКИ
+        [InlineKeyboardButton(text="🚫 Заблокировать пользователя", callback_data="admin_block_user")],
+        [InlineKeyboardButton(text="✅ Разблокировать пользователя", callback_data="admin_unblock_user")],
     ])
     
     await bot.send_message(chat_id, text, reply_markup=keyboard, parse_mode="HTML")
@@ -156,6 +167,67 @@ async def admin_add_staff_process(message: Message, state: FSMContext):
                 [InlineKeyboardButton(text="◀️ Назад", callback_data="admin_back_to_users")]
             ])
         )
+    
+    await state.clear()
+
+
+# ========================
+# 👇 НОВЫЕ ОБРАБОТЧИКИ ДЛЯ БЛОКИРОВКИ
+# ========================
+
+@router.callback_query(F.data == "admin_block_user")
+@admin_required
+async def admin_block_user_start(callback: CallbackQuery, state: FSMContext):
+    """Начать блокировку пользователя"""
+    text = "🚫 <b>Блокировка пользователя</b>\n\n"
+    text += "Введите номер телефона пользователя для блокировки:\n\n"
+    text += "Например: +79991234567"
+    
+    await state.set_state(AdminUserStates.waiting_for_block)
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AdminUserStates.waiting_for_block)
+@admin_required
+async def admin_block_user_process(message: Message, state: FSMContext):
+    """Обработать блокировку"""
+    phone = message.text.strip()
+    
+    success = await block_user_by_phone(phone)
+    
+    if success:
+        await message.answer(f"✅ Пользователь с номером {phone} заблокирован")
+    else:
+        await message.answer(f"❌ Пользователь с номером {phone} не найден")
+    
+    await state.clear()
+
+
+@router.callback_query(F.data == "admin_unblock_user")
+@admin_required
+async def admin_unblock_user_start(callback: CallbackQuery, state: FSMContext):
+    """Начать разблокировку пользователя"""
+    text = "✅ <b>Разблокировка пользователя</b>\n\n"
+    text += "Введите номер телефона пользователя для разблокировки:"
+    
+    await state.set_state(AdminUserStates.waiting_for_unblock)
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.answer()
+
+
+@router.message(AdminUserStates.waiting_for_unblock)
+@admin_required
+async def admin_unblock_user_process(message: Message, state: FSMContext):
+    """Обработать разблокировку"""
+    phone = message.text.strip()
+    
+    success = await unblock_user_by_phone(phone)
+    
+    if success:
+        await message.answer(f"✅ Пользователь с номером {phone} разблокирован")
+    else:
+        await message.answer(f"❌ Пользователь с номером {phone} не найден")
     
     await state.clear()
 
